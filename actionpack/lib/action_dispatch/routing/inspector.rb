@@ -58,6 +58,23 @@ module ActionDispatch
       end
     end
 
+    class GroupedRouteWrapper
+      attr_accessor :name, :path, :reqs, :verbs
+
+      def initialize(name:, path:, reqs:, verbs:)
+        @name  = name 
+        @path  = path
+        @reqs  = reqs
+        @verbs = verbs
+      end
+
+      def to_h
+        {
+          hello: :world
+        }
+      end
+    end
+
     ##
     # This class is just used for displaying route information when someone
     # executes `bin/rails routes` or looks at the RoutingError page.
@@ -203,6 +220,57 @@ module ActionDispatch
             [routes.map { |r| r[:name].length }.max || 0,
              routes.map { |r| r[:verb].length }.max || 0,
              routes.map { |r| r[:path].length }.max || 0]
+          end
+      end
+
+      class Compact < Base
+        def initialize(width: IO.console_size[1])
+          @width = width
+          super()
+        end
+
+        def section_title(title)
+          @buffer << "\n#{title}:"
+        end
+
+        def section(routes)
+          @buffer << draw_section(group_routes(routes))
+        end
+
+        def header(routes)
+          @buffer << draw_header(routes)
+        end
+
+        private
+          def group_routes(routes)
+            routes
+              .group_by { |route| [route[:path], route[:reqs]] }
+              .collect do |_, routes|
+                verbs = routes.collect { |r| r[:verb] }
+                GroupedRouteWrapper.new(**routes.first.without(:verb).merge(verbs: verbs))
+              end
+          end
+
+          def draw_section(routes)
+            header_lengths = ["Prefix", "Verb", "URI Pattern"].map(&:length)
+            name_width, verb_width, path_width = widths(routes).zip(header_lengths).map(&:max)
+
+            routes.map do |route|
+              # "#{r[:name].rjust(name_width)} #{r[:verb].ljust(verb_width)} #{r[:path].ljust(path_width)} #{r[:reqs]}"
+              "#{route.name.rjust(name_width)} #{route.verbs.join(" | ").ljust(verb_width)} #{route.path.ljust(path_width)} #{route.reqs}"
+            end
+          end
+
+          def draw_header(routes)
+            name_width, verb_width, path_width = widths(group_routes(routes))
+
+            "#{"Prefix".rjust(name_width)} #{"Verb".ljust(verb_width)} #{"URI Pattern".ljust(path_width)} Controller#Action"
+          end
+
+          def widths(routes)
+            [routes.map { |r| r.name.length }.max || 0,
+             routes.map { |r| r.verbs.size + 1 + r.verbs.join.length }.max || 0,
+             routes.map { |r| r.path.length }.max || 0]
           end
       end
 
