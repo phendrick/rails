@@ -1128,6 +1128,7 @@ module ActionDispatch
 
         class Resource # :nodoc:
           attr_reader :controller, :path, :param
+          cattr_reader :route_names, default: {}
 
           def initialize(entities, api_only, shallow, options = {})
             if options[:param].to_s.include?(":")
@@ -1144,6 +1145,8 @@ module ActionDispatch
             @api_only   = api_only
             @only       = options.delete :only
             @except     = options.delete :except
+            
+            cache_renamed_route(@name, @as) if @as && @name != @as 
           end
 
           def default_actions
@@ -1219,6 +1222,11 @@ module ActionDispatch
           end
 
           def singleton?; false; end
+
+          private 
+            def cache_renamed_route(initial_name, name)
+              route_names[initial_name] = name
+            end
         end
 
         class SingletonResource < Resource # :nodoc:

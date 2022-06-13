@@ -274,11 +274,22 @@ module ActionDispatch
 
           def handle_model_call(target, record)
             if mapping = polymorphic_mapping(target, record)
-              mapping.call(target, [record], suffix == "path")
-            else
-              method, args = handle_model(record)
-              target.public_send(method, *args)
+              return mapping.call(target, [record], suffix == "path")
             end
+
+            method, args = handle_model(record)
+            route_name   = method.gsub(/_path$/, "s")
+
+            if cached_named_route?(route_name)
+              prefix = ActionDispatch::Routing::Mapper::Resources::Resource.route_names[route_name]
+              method = "#{prefix.singularize}_path"
+            end
+
+            target.public_send(method, *args)
+          end
+
+          def cached_named_route?(name)
+            ActionDispatch::Routing::Mapper::Resources::Resource.route_names.has_key?(name)
           end
 
           def handle_list(list)
